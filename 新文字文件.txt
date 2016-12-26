@@ -1,0 +1,547 @@
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<style>
+			* {padding: 0;margin:　0;}
+			canvas { background: #eee; display: block; margin: 0 auto; }
+		</style>
+	</head>
+	<body>
+		<canvas id = "myCanvas" width = "400" height="400"></canvas>
+		<div style="position:absolute; top:450px; left:10px;">
+		遊戲規則：<br>
+		不斷射擊螢幕上的標靶來得分<br>
+		遊戲時間30秒<br>
+		時間到後結算成績<br>
+		連續命中可獲得Combo加成<br>
+		<br>操作方式：<br>
+		方向鍵：移動角度　<br>
+		Ｚ or Space　：射擊<br>
+		Ｆ５　：再玩一次
+		</div>
+		<audio id="se1">
+			<source src = "se/se_plst00.wav" type = "audio/wav">
+		</audio>
+		<audio id="se2">
+			<source src = "se/se_enep00.wav" type = "audio/wav">
+		</audio>
+		<audio id="se3">
+			<source src = "se/se_pldead00.wav" type = "audio/wav">
+		</audio>
+		<audio id="BGM">
+			<source src = "bgm/Highway_Walfare.mp3" type = "audio/mp3">
+		</audio>
+	</body>
+	<script>
+	
+		img_r1 = new Image();
+		img_r1.src = "img/r1.png";
+		img_r1.onload = function(){imageLoadDoneR1 = true;}
+		
+		img_m1 = new Image();
+		img_m1.src = "img/m1.png";
+		img_m1.onload = function(){imageLoadDoneM1 = true;}
+		
+		img_s1 = new Image();
+		img_s1.src = "img/s1.png";
+		img_s1.onload = function(){imageLoadDoneS1 = true;}
+		
+		img_k1 = new Image();
+		img_k1.src = "img/k1.png";
+		img_k1.onload = function(){imageLoadDoneK1 = true;}
+	
+		var audioElement=document.getElementById("BGM");
+			//audioElement.play();
+	
+		var canvas = document.getElementById("myCanvas");
+		var ctx = canvas.getContext("2d");
+		
+		var plyaer = {
+			width: 30,
+			height: 30,
+			x: canvas.width/2, //player x position
+			y: canvas.height-playerHeight//player y position
+		}
+		var playerWidth = 30;
+		var playerHeight = 30;
+		var playerX = canvas.width/2;//player x position
+		var playerY = canvas.height-playerHeight;//player y position
+		var sniperHeight = 50;//砲管高度
+		var sniperWidth = 4;//砲管寬度
+		var life = 100;//體力
+		
+		var sniperAngle = 90;
+		var angle=sniperAngle*Math.PI/180;
+		
+		var player_bullet=[];
+		var bullet = {
+			radius:5,posX:10,posY1:10,speed:10
+		}
+		
+		var block1Array=[];
+		var block2Array=[];
+		var block3Array=[];
+		
+		var leftPress = false;
+		var rightPress = false;
+		var downPress = false;
+		var upPress = false;
+		var shootPress = false;
+		
+		var score = 0;
+		var timer = 0;
+		var combo = 0;
+		
+		var gameLoop;
+		var counter;
+		var LC;//life counter
+		var enemyRate = 600;//enemy appear rate
+		var enemyKill;//number of killing enemy
+		
+		var animate;
+		
+		document.addEventListener("keydown", keyDownHandler, false);
+		document.addEventListener("keyup", keyUpHandler, false);
+		
+		var gameStart=false;
+		
+		function init(){//初始化
+			audioElement.play();
+			plyaer = {
+			width: 30,
+			height: 30,
+			x: canvas.width/2, //player x position
+			y: canvas.height-playerHeight//player y position
+			}
+			
+			score = 0;
+			timer = 0;
+			combo = 0;
+			sniperAngle = 90;
+			angle=sniperAngle*Math.PI/180;
+			life=100;
+			enemyRate=600;
+			enemyKill = 0;
+			
+			block1Array=[];
+			
+			rightPress = false;
+			leftPress = false;
+			downPress = false;
+			upPress = false;
+			
+			//alert(Math.cos(angle));
+			
+			clearInterval(gameLoop);
+			clearInterval(counter);
+		}
+		
+		function drawPlayer(){//繪製玩家			
+				ctx.beginPath();
+				ctx.rect(playerX, playerY, playerWidth, playerHeight);
+				ctx.fillStyle="#0095DD";
+				ctx.fill();
+				
+				/*ctx.strokeStyle = "#FF0000";
+				ctx.lineWidth = sniperWidth;
+				ctx.moveTo(playerX+(playerWidth/2),playerY+(playerHeight/2));
+				ctx.lineTo(playerX+(playerWidth/2)+(Math.cos(angle)*sniperHeight),
+				playerY+(playerHeight/2)-(Math.sin(angle)*sniperHeight));
+				ctx.stroke();*/
+				
+				ctx.closePath();
+		}
+			
+		function drawBullet(){//繪製子彈
+			/*for(var i=0;i<player_bullet.length;i++){
+				var bullet = player_bullet[i];
+				bullet.posX-= Math.cos(bullet.angle)*bullet.speed;
+				bullet.posY1+= Math.sin(bullet.angle)*bullet.speed;
+				
+				ctx.fillStyle = "rgba(200,0,0,1)";
+				ctx.fillRect(bullet.posX, bullet.posY1, bullet.radius, bullet.radius);
+			}*/
+			for(var i=0;i<player_bullet.length;i++){
+				var bullet = player_bullet[i];
+				bullet.posY1+= bullet.speed;
+				
+				ctx.fillStyle = "rgba(200,0,0,1)";
+				ctx.fillRect(bullet.posX, bullet.posY1, bullet.radius, bullet.radius);
+			}
+		}
+		
+		function enemyDead(enemy){//敵人爆炸特效 未完成
+			var deadSpeed = 3;
+			var ran = [];
+			var ang = [];
+			for(var i=0; i<5; i++){
+				ran[i] = Math.random()*360;
+				ang[i] = ran*Math.PI/180;
+			}
+			for(var i=0; i<5; i++){
+				enemy.posX-= Math.cos(ang[i])*deadSpeed*50;
+				enemy.posY1+= Math.sin(ang[i])*deadSpeed*50;
+				
+				ctx.fillStyle = "rgba(200,0,0,1)";
+				ctx.fillRect(enemy.posX, enemy.posY1, 2, 2);
+			}
+		}
+		
+		function drawblock(){//繪製標靶
+			for(var i=0;i<block1Array.length;i++){
+				var blocks = block1Array[i];
+				blocks.posY-= blocks.speed;
+				
+				ctx.fillStyle = blocks.color;
+				//ctx.fillRect(blocks.posX, blocks.posY, blocks.radius, blocks.radius);
+				ctx.drawImage(blocks.img,blocks.posX, blocks.posY, blocks.radius, blocks.radius);
+			}
+		}
+		
+		function check(){//陣列檢查 去除空欄位
+			var new_block1Array=[];
+			
+					for(var i=0;i<block1Array.length;i++){
+						if(block1Array[i]){
+							new_block1Array.push(block1Array[i]);
+						}
+					}
+					block1Array=new_block1Array;
+
+					var new_player_bullet=[];
+				
+					for(var i=0;i<player_bullet.length;i++){
+						if(player_bullet[i]){
+							new_player_bullet.push(player_bullet[i]);
+						}
+					}
+					player_bullet=new_player_bullet;
+		}
+		
+		function collision(){//撞擊判定
+			for(var i=0; i<player_bullet.length; i++){//子彈撞擊判定
+				var b = player_bullet[i];
+				if(b.posY1<=0||b.posX<=0||b.posX>=canvas.width){
+				combo=0;
+				delete player_bullet[i];
+				check();
+				break;
+				}
+				for(var j=0; j<block1Array.length; j++){
+					
+					var t = block1Array[j];
+					if(b.posY1<=(t.posY+t.radius) 
+					&& (b.posY1+b.radius)>=t.posY
+					&& b.posX>=t.posX
+					&& (b.posX+b.radius)<=(t.posX+t.radius)){
+						seHit();
+						combo++;
+						score+=100*combo;
+						
+						//enemyDead(block1Array[j]);
+						
+						delete player_bullet[i];
+						delete block1Array[j];
+						check();
+						enemyKill++;
+						break;
+						}
+					}							
+			}
+				for(var j=0; j<block1Array.length; j++){//磚塊碰撞地板					
+					var t = block1Array[j];
+					if(canvas.height<=(t.posY+t.radius)){
+					
+						seDamage();
+						life-=20;
+						delete block1Array[j];
+						check();
+						break;
+						}
+					}
+		}
+		
+		function createblock(){//產生標靶
+			var num = (Math.floor(Math.random()*4+1));
+			if(num==1){
+				var block1 = {
+				img:img_r1,
+				radius:50,
+				posX: Math.floor(Math.random()*(canvas.width-50)),
+				posY: -50,
+				speed: -1,
+				color:"rgba(200,200,0,1)"
+			}	
+				block1Array.push(block1);
+			}
+			if(num==2){
+				var block2 = {
+				img:img_m1,
+				radius:50,
+				posX: Math.floor(Math.random()*(canvas.width-50)),
+				posY: -50,
+				speed: -1,
+				color:"rgba(0,200,200,1)"
+			}	
+				block1Array.push(block2);
+			}
+			if(num==3){
+				var block3 = {
+				img:img_s1,
+				radius:50,
+				posX: Math.floor(Math.random()*(canvas.width-50)),
+				posY: -50,
+				speed: -1,
+				color:"rgba(100,200,100,1)"
+			}	
+				block1Array.push(block3);
+			}
+			if(num==4){
+				var block3 = {
+				img:img_k1,
+				radius:50,
+				posX: Math.floor(Math.random()*(canvas.width-50)),
+				posY: -50,
+				speed: -2,
+				color:"rgba(200,0,100,1)"
+			}	
+				block1Array.push(block3);
+			}
+			check();		
+		}
+		
+		function drawScore(){//繪製分數
+				ctx.font = "16px Arial";
+				ctx.fillStyle = "#0095DD";
+				ctx.fillText("Score: "+score,8,20);
+			}
+			
+		function drawCombo(){//繪製連段
+				ctx.font = "16px Arial";
+				ctx.fillStyle = "#0095DD";
+				ctx.fillText("Combo: "+combo,8, 40);
+			}
+			
+		function drawKill(){//繪製連段
+				ctx.font = "16px Arial";
+				ctx.fillStyle = "#0095DD";
+				ctx.fillText("Kill: "+enemyKill,8, 60);
+			}
+			
+		function drawLife(){//繪製體力
+				ctx.font = "16px Arial";
+				ctx.fillStyle = "#0095DD";
+				ctx.fillText("Life: "+life,8, canvas.height-20);
+			}
+			
+		function drawMenu(){
+			ctx.clearRect(0,0,canvas.width,canvas.height);
+			ctx.font = "24px Arial";
+			ctx.fillStyle = "#0095DD";
+			ctx.fillText("Shooting Game",canvas.width/2-75, canvas.height/2-20);
+			ctx.font = "16px Arial";
+			ctx.fillText("Press space to start",canvas.width/2-60, canvas.height/2+30);
+			requestAnimationFrame(drawMenu);
+		}
+			
+		function drawTimer(){//繪製計時器
+				ctx.font = "16px Arial";
+				ctx.fillStyle = "#0095DD";
+				ctx.fillText("Time: "+timer,canvas.width-85, 20);
+			}
+			
+		function keyDownHandler(e){//按下鍵盤
+			if(e.keyCode == 39){
+				rightPress = true;
+			}
+			if(e.keyCode == 37){
+				leftPress = true;
+			}
+			
+			if(e.keyCode == 38){
+				upPress = true;
+			}
+			
+			if(e.keyCode == 40){
+				downPress = true;
+			}
+			if(e.keyCode == 32 || e.keyCode == 90){// Z space
+				if(gameStart){
+					var newBullet = {
+					radius:6, 
+					posX:(playerX+playerWidth/2-3), 
+					posY1:(playerY+playerWidth/2-3), 
+					speed: -11,
+					angle: angle
+					};
+					seShoot();
+					player_bullet.push(newBullet);
+					shootPress = true;
+					check();
+				}else{
+					init();
+					clearInterval(gameLoop);
+					clearInterval(counter);
+					clearInterval(LC);
+					//gameLoop = 0;
+					seHit();
+					gameStart=true;
+					gameLoop = setInterval(createblock, enemyRate);
+					counter = setInterval(timeCount, 1000);
+					LC = setInterval(lifeCount, 500);
+					draw();
+				}				
+			}
+		}
+			
+		function keyUpHandler(e){//放開鍵盤
+			if(e.keyCode == 39){
+				rightPress = false;
+			}
+			if(e.keyCode == 37){
+				leftPress = false;
+			}
+			if(e.keyCode == 38){
+				upPress = false;
+			}
+			
+			if(e.keyCode == 40){
+				downPress = false;
+			}
+			if(e.keyCode == 32 || e.keyCode == 90){// Z space
+				shootPress = false;
+			}
+		}
+		
+		function timeCount(){//計時器
+			if(timer>=0)timer++;
+			if(enemyKill==20){//increace enemy appear rate
+				enemyRate = 500;
+				clearInterval(gameLoop);
+				gameLoop = setInterval(createblock, enemyRate);
+						}
+			if(enemyKill==40){//increace enemy appear rate
+				enemyRate = 400;
+				clearInterval(gameLoop);
+				gameLoop = setInterval(createblock, enemyRate);
+						}
+			if(enemyKill==60){//increace enemy appear rate
+				enemyRate = 300;
+				clearInterval(gameLoop);
+				gameLoop = setInterval(createblock, enemyRate);
+						}
+			if(enemyKill==80){//increace enemy appear rate
+				enemyRate = 250;
+				clearInterval(gameLoop);
+				gameLoop = setInterval(createblock, enemyRate);
+						}
+			if(enemyKill==100){//increace enemy appear rate
+				enemyRate = 200;
+				clearInterval(gameLoop);
+				gameLoop = setInterval(createblock, enemyRate);
+						}
+			if(enemyKill==150){//increace enemy appear rate
+				enemyRate = 150;
+				clearInterval(gameLoop);
+				gameLoop = setInterval(createblock, enemyRate);
+						}
+			if(enemyKill==200){//increace enemy appear rate
+				enemyRate = 100;
+				clearInterval(gameLoop);
+				gameLoop = setInterval(createblock, enemyRate);
+						}
+			if(enemyKill==200){//increace enemy appear rate
+				enemyRate = 60;
+				clearInterval(gameLoop);
+				gameLoop = setInterval(createblock, enemyRate);
+						}
+		}
+		
+		function lifeCount(){//判定體力是否歸零
+			if(life<=0 && life != -999){				
+				drawLife();
+				alert("Game Over!");
+				alert("Final Score: "+score);
+				//這一行停止動畫
+						
+				/*audioElement.pause();
+				audioElement.currentTime=0;*/
+				clearInterval(gameLoop);
+				clearInterval(counter);
+				clearInterval(LC);
+				window.removeEventListener('keydown',keyDownHandler,false);
+				
+				//animate=requestAnimationFrame(draw);
+				window.cancelAnimationFrame(animate);
+				gameStart=false;
+				life=-999;
+				drawMenu();				
+			}
+		}
+		
+		function draw(){//繪製圖像
+			ctx.clearRect(0,0,canvas.width,canvas.height);
+			drawPlayer();
+
+			drawblock();
+			drawBullet();
+
+			drawTimer();
+			drawScore();
+			drawCombo();
+			drawLife();
+			drawKill();
+
+			collision();			
+
+			if(rightPress&&playerX<canvas.width-playerWidth){
+					playerX +=7;
+			}
+			if(leftPress&&playerX>0){
+				playerX -=7;
+			}
+			if(upPress&&playerY>0){
+					playerY -=7;
+			}
+			if(downPress&&playerY<canvas.height-playerHeight){
+					playerY +=7;
+			}
+				check();
+				animate=requestAnimationFrame(draw);
+				//requestAnimationFrame(draw);
+		}
+		
+		function seShoot(){//音效 射擊音
+				var audioElementName = "se1";
+				var audio = document.getElementById(audioElementName);
+				audio.currentTime = 0;
+				audio.play();
+			}
+			
+		function seHit(){//音效 擊中
+				var audioElementName = "se2";
+				var audio = document.getElementById(audioElementName);
+				audio.currentTime = 0;
+				audio.play();
+			}
+			
+		function seDamage(){//音效 擊中
+				var audioElementName = "se3";
+				var audio = document.getElementById(audioElementName);
+				audio.currentTime = 0;
+				audio.play();
+			}
+		//http://www.slideshare.net/yoheimunesada/html-canvas-shootingandperformanceup
+		
+		
+		if(gameStart){//待解決 尋求停止動畫的方法	
+			/*gameLoop = setInterval(createblock, 1000);
+			counter = setInterval(timeCount, 1000);
+			draw();*/
+			//animate=requestAnimationFrame(draw);
+		}else{
+			drawMenu();
+		}
+	</script>
+
+</html>
